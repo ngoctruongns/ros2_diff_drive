@@ -1,0 +1,12 @@
+robot_pi_startup:
+  ros__parameters:
+    lidar_topic_name: "/scan"
+    lidar_tf:
+      parent_frame: base_link
+      child_frame: lidar_link
+      x: 0.0
+      y: 0.0
+      z: 0.25
+      yaw: -1.57
+      pitch: 0.0
+      roll: 0.0

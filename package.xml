@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>robot_diff_drive</name>
+  <version>0.1.0</version>
+  <description>
+    Top-level bringup package for the diff-drive robot.
+    Brings up all Pi bridge nodes and provides launch files for
+    higher-level algorithms (navigation, sensor fusion, etc.).
+  </description>
+  <maintainer email="tvn@robot.local">tvn</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- Launch infrastructure -->
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+
+  <!-- Bridge packages -->
+  <exec_depend>velocity_control</exec_depend>
+  <exec_depend>ldlidar_ros_bridge</exec_depend>
+  <exec_depend>ros2_pi_camera_bridge</exec_depend>
+
+  <!-- TF for LiDAR static transform -->
+  <exec_depend>tf2_ros</exec_depend>
+
+  <!-- Algorithm stack -->
+  <exec_depend>slam_toolbox</exec_depend>
+  <exec_depend>nav2_bringup</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
