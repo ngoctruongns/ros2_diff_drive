@@ -14,9 +14,12 @@ robot_diff_drive/
 │   ├── robot_pi_startup.yaml
 │   ├── odometry.yaml
 │   └── slam_toolbox.yaml
+├── docs/
+│   └── slam_mapping_debug_checklist.md
 ├── launch/
 │   ├── robot_pi_startup.launch.py
-│   └── robot_algorithms.launch.py
+│   ├── robot_algorithms.launch.py
+│   └── robot_mapping.launch.py
 ├── CMakeLists.txt
 └── package.xml
 ```
@@ -95,6 +98,31 @@ ros2 launch robot_diff_drive robot_algorithms.launch.py use_nav2:=false
 ros2 launch robot_diff_drive robot_algorithms.launch.py use_slam:=false
 ```
 
+## 3) One-Command Mapping Bringup
+
+Launch bridge + wheel odometry + RViz + SLAM Toolbox in one command:
+
+```bash
+ros2 launch robot_diff_drive robot_mapping.launch.py
+```
+
+Arguments:
+
+- `camera_port` (default: `5000`)
+- `use_sim_time` (default: `false`)
+- `slam_params_file` (default: `config/slam_toolbox.yaml`)
+
+Examples:
+
+```bash
+# Override camera UDP port
+ros2 launch robot_diff_drive robot_mapping.launch.py camera_port:=5600
+
+# Try an alternate SLAM parameter file
+ros2 launch robot_diff_drive robot_mapping.launch.py \
+  slam_params_file:=/home/tvn/ros2_ws/src/robot_diff_drive/config/slam_toolbox.yaml
+```
+
 ## Recommended Bringup Order
 
 1. Start Pi bridges:
@@ -121,3 +149,4 @@ ros2 topic echo /odom
 
 - Keep robot-specific geometry and TF values in this package `config/` directory.
 - Keep reusable protocol/driver/kinematics implementation in feature packages such as `velocity_control`.
+- For common mapping failures and fast fixes, use [docs/slam_mapping_debug_checklist.md](docs/slam_mapping_debug_checklist.md).
