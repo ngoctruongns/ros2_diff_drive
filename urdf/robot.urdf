@@ -5,11 +5,16 @@
     - Body diameter   : 0.30 m  (radius 0.15 m)
     - Wheel radius    : 0.0323 m
     - Track width (L) : 0.252 m  → wheel y offset = ±0.126 m
-    - LiDAR height    : 0.25 m above base_link (same as static TF in robot_pi_startup.yaml)
+    - base_footprint → base_link : +0.0323 m on Z (wheel axle height)
+    - LiDAR height    : 0.240 m above base_link
   Coordinate convention:
-    base_link is at the centre of the drive axle (x forward, y left, z up).
+    base_footprint is the ground projection frame.
+    base_link is 0.0323 m above base_footprint (x forward, y left, z up).
 -->
 <robot name="diff_drive_robot">
+
+  <!-- Ground-projected robot frame (REP-105 style). -->
+  <link name="base_footprint"/>
 
   <!-- ── Materials ─────────────────────────────────────────────────── -->
   <material name="white">
@@ -25,7 +30,7 @@
     <color rgba="0.0 0.8 0.8 0.6"/>
   </material>
 
-  <!-- ── Base link (lower circular platform) ───────────────────────── -->
+  <!-- ── Base link (robot body reference frame) ────────────────────── -->
   <link name="base_link">
     <visual>
       <!-- Lower platform disk (visible at wheel-axle height) -->
@@ -52,6 +57,12 @@
       <material name="dark_gray"/>
     </visual>
   </link>
+
+  <joint name="base_footprint_to_base_link" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0.0 0.0 0.0323" rpy="0 0 0"/>
+  </joint>
 
   <!-- ── Left wheel ─────────────────────────────────────────────────── -->
   <link name="left_wheel">
@@ -86,9 +97,8 @@
 
   <!-- ── LiDAR link ─────────────────────────────────────────────────── -->
   <!--
-    Transform matches robot_pi_startup.yaml:
-      xyz = 0 0 0.25,  yaw = -1.57 rad  (i.e. rpy = "0 0 -1.5708")
-    Replaces the static_transform_publisher that was launched separately.
+    LiDAR mount relative to base_link:
+      xyz = 0 0 0.240,  yaw = -1.57 rad  (i.e. rpy = "0 0 -1.5708")
   -->
   <link name="lidar_link">
     <visual>
@@ -111,7 +121,7 @@
   <joint name="lidar_joint" type="fixed">
     <parent link="base_link"/>
     <child link="lidar_link"/>
-    <origin xyz="0.0 0.0 0.25" rpy="0 0 -1.5708"/>
+    <origin xyz="0.0 0.0 0.240" rpy="0 0 -1.5708"/>
   </joint>
 
 </robot>

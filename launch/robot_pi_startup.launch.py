@@ -84,7 +84,7 @@ def generate_launch_description():
     # =========================================================================
     # 1. Robot state publisher
     #    Publishes /robot_description and all static TFs defined in the URDF
-    #    (including base_link → lidar_link, base_link → left/right_wheel).
+    #    (including base_footprint → base_link and base_link → lidar_link).
     #    Replaces the old static_transform_publisher.
     # =========================================================================
     robot_state_publisher_node = Node(

@@ -21,18 +21,20 @@ Expected:
 Required chain for mapping:
 
 - `map -> odom` (published by slam_toolbox)
-- `odom -> base_link` (published by odometry node)
-- `base_link -> lidar_link` (static transform)
+- `odom -> base_footprint` (published by odometry node)
+- `base_footprint -> base_link` (static transform from URDF)
+- `base_link -> lidar_link` (static transform from URDF)
 
 Commands:
 
 ```bash
-ros2 run tf2_ros tf2_echo odom base_link
+ros2 run tf2_ros tf2_echo odom base_footprint
+ros2 run tf2_ros tf2_echo base_footprint base_link
 ros2 run tf2_ros tf2_echo base_link lidar_link
 ros2 run tf2_ros tf2_echo map odom
 ```
 
-If `base_link -> lidar_link` is wrong, update `config/robot_pi_startup.yaml` and relaunch.
+If `base_link -> lidar_link` is wrong, update `urdf/robot.urdf` and relaunch.
 
 ## 3) Check LiDAR Mount Parameters
 
@@ -42,7 +44,7 @@ Symptoms of wrong mount:
 - mirrored walls,
 - duplicate wall lines.
 
-Check these in `config/robot_pi_startup.yaml`:
+Check these in `urdf/robot.urdf`:
 
 - `x`, `y`, `z`
 - `yaw`, `pitch`, `roll`
@@ -60,7 +62,7 @@ ros2 topic echo /odom --once
 
 Verify:
 
-- `child_frame_id` is `base_link`
+- `child_frame_id` is `base_footprint`
 - linear/angular velocities are plausible
 - pose does not jump when robot is stationary
 
