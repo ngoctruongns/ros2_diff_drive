@@ -4,21 +4,21 @@ robot_pi_startup.launch.py
 Starts all bridge nodes that relay data between the Raspberry Pi and ROS2
 running on the laptop:
 
-  1. velocity_control bridge  — motor commands / encoder feedback (via FastDDS)
-  2. LiDAR bridge             — LD-Radar point cloud (via FastDDS)
-     + static TF              — base_link → ldlidar_frame
-  3. Pi camera bridge         — H.264 video stream (via UDP)
+  1. robot_state_publisher    — publishes /robot_description + all static TFs from URDF
+  2. velocity_control bridge  — motor commands / encoder feedback (via FastDDS)
+  3. LiDAR bridge             — LD-Radar point cloud (via FastDDS)
+  4. Pi camera bridge         — H.264 video stream (via UDP)
 
 Launch arguments
 ----------------
   Velocity-control bridge
     (no run-time args — wheel geometry is read from the package params file)
 
-  LiDAR bridge
-        static TF is loaded from config/robot_pi_startup.yaml
-
   Camera bridge
     camera_port : UDP port on which the H.264 stream arrives (default: 5000)
+
+  Joystick (PS3)
+    use_joystick : launch joy + teleop_twist_joy + ps3_utils_control (default: true)
 """
 
 import os
@@ -27,12 +27,18 @@ import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, LogInfo
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 
 def generate_launch_description():
     robot_config = get_package_share_directory("robot_diff_drive")
+
+    # Load URDF for robot_state_publisher
+    urdf_file = os.path.join(robot_config, "urdf", "robot.urdf")
+    with open(urdf_file, "r", encoding="utf-8") as f:
+        robot_description = f.read()
 
     source_rviz_config = os.path.abspath(
         os.path.join(
@@ -59,18 +65,38 @@ def generate_launch_description():
     startup_params = startup_config.get("robot_pi_startup", {}).get(
         "ros__parameters", {}
     )
-    lidar_tf = startup_params.get("lidar_tf", {})
     lidar_topic_name = startup_params.get("lidar_topic_name", "ldlidar_scan")
 
-    # ── Camera argument ───────────────────────────────────────────────────────
+    # ── Camera argument ──────────────────────────────────────────────────────────────
     camera_port_arg = DeclareLaunchArgument(
         "camera_port",
         default_value="5000",
         description="UDP port to receive the raw H.264 stream from Raspberry Pi",
     )
 
+    # ── Joystick argument ─────────────────────────────────────────────────────
+    use_joystick_arg = DeclareLaunchArgument(
+        "use_joystick",
+        default_value="true",
+        description="Launch PS3 joystick nodes (joy, teleop_twist_joy, ps3_utils_control)",
+    )
+
     # =========================================================================
-    # 1. Velocity-control bridge
+    # 1. Robot state publisher
+    #    Publishes /robot_description and all static TFs defined in the URDF
+    #    (including base_link → lidar_link, base_link → left/right_wheel).
+    #    Replaces the old static_transform_publisher.
+    # =========================================================================
+    robot_state_publisher_node = Node(
+        package="robot_state_publisher",
+        executable="robot_state_publisher",
+        name="robot_state_publisher",
+        output="screen",
+        parameters=[{"robot_description": robot_description}],
+    )
+
+    # =========================================================================
+    # 2. Velocity-control bridge
     #    Receives encoder ticks from STM32 → publishes /odom (or tick topics)
     #    Subscribes /cmd_vel → forwards motor commands to STM32 via FastDDS
     # =========================================================================
@@ -95,8 +121,9 @@ def generate_launch_description():
     )
 
     # =========================================================================
-    # 2a. LiDAR bridge
+    # 3. LiDAR bridge
     #     Receives raw LiDAR data from Pi via FastDDS → publishes /scan
+    #     TF base_link → lidar_link is now handled by robot_state_publisher.
     # =========================================================================
     ldlidar_bridge_node = Node(
         package="ldlidar_ros_bridge",
@@ -106,26 +133,8 @@ def generate_launch_description():
         parameters=[{"lidar_topic_name": lidar_topic_name}],
     )
 
-    # 2b. Static transform: base_link → ldlidar_frame from config/robot_pi_startup.yaml
-    ldlidar_tf_node = Node(
-        package="tf2_ros",
-        executable="static_transform_publisher",
-        name="ldlidar_static_tf",
-        arguments=[
-            str(lidar_tf.get("x", 0.0)),
-            str(lidar_tf.get("y", 0.0)),
-            str(lidar_tf.get("z", 0.0)),
-            str(lidar_tf.get("yaw", 0.0)),
-            str(lidar_tf.get("pitch", 0.0)),
-            str(lidar_tf.get("roll", 0.0)),
-            str(lidar_tf.get("parent_frame", "base_link")),
-            str(lidar_tf.get("child_frame", "lidar_link")),
-        ],
-        output="screen",
-    )
-
     # =========================================================================
-    # 3. Pi camera bridge
+    # 4. Pi camera bridge
     #    Receives UDP H.264 stream from Pi → publishes /image_raw/compressed
     # =========================================================================
     camera_bridge_node = Node(
@@ -137,7 +146,7 @@ def generate_launch_description():
     )
 
     # =========================================================================
-    # 4. RViz2
+    # 5. RViz2
     #    Visualises sensor data from all Pi bridge nodes
     # =========================================================================
     rviz_node = Node(
@@ -148,20 +157,68 @@ def generate_launch_description():
         arguments=["-d", rviz_config],
     )
 
+    # =========================================================================
+    # 6. PS3 joystick control
+    #    joy_node        — reads raw joystick events
+    #    teleop_node     — converts joystick axes to /cmd_vel (hold L1 to move)
+    #    ps3_utils_node  — maps buttons to LED / buzzer commands
+    # =========================================================================
+    velocity_config = get_package_share_directory("velocity_control")
+    ps3_teleop_config = os.path.join(velocity_config, "joy_stick", "ps3_teleop.yaml")
+    ps3_utils_config = os.path.join(velocity_config, "joy_stick", "ps3_utils_control.yaml")
+
+    joy_node = Node(
+        package="joy",
+        executable="joy_node",
+        name="joy_node",
+        output="screen",
+        condition=IfCondition(LaunchConfiguration("use_joystick")),
+        parameters=[{
+            "dev": "/dev/input/js0",
+            "deadzone": 0.1,
+            "autorepeat_rate": 20.0,
+        }],
+    )
+
+    teleop_node = Node(
+        package="teleop_twist_joy",
+        executable="teleop_node",
+        name="teleop_twist_joy_node",
+        output="screen",
+        condition=IfCondition(LaunchConfiguration("use_joystick")),
+        parameters=[ps3_teleop_config],
+        remappings=[("cmd_vel", "/cmd_vel")],
+    )
+
+    ps3_utils_node = Node(
+        package="velocity_control",
+        executable="ps3_utils_control",
+        name="ps3_utils_control_node",
+        output="screen",
+        condition=IfCondition(LaunchConfiguration("use_joystick")),
+        parameters=[ps3_utils_config],
+    )
+
     return LaunchDescription(
         [
             # Arguments
             camera_port_arg,
+            use_joystick_arg,
             # Nodes
+            LogInfo(msg="[robot_diff_drive] Starting robot state publisher (URDF model)..."),
+            robot_state_publisher_node,
             LogInfo(msg="[robot_diff_drive] Starting velocity-control bridge..."),
             velocity_bridge_node,
             odom_node,
             LogInfo(msg="[robot_diff_drive] Starting LiDAR bridge..."),
             ldlidar_bridge_node,
-            ldlidar_tf_node,
             LogInfo(msg="[robot_diff_drive] Starting Pi camera bridge..."),
             camera_bridge_node,
             LogInfo(msg="[robot_diff_drive] Starting RViz2..."),
             rviz_node,
+            LogInfo(msg="[robot_diff_drive] Starting PS3 joystick control..."),
+            joy_node,
+            teleop_node,
+            ps3_utils_node,
         ]
     )

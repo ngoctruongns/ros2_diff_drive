@@ -23,6 +23,11 @@ def generate_launch_description():
         default_value="5000",
         description="UDP port to receive H.264 stream from Raspberry Pi",
     )
+    use_joystick_arg = DeclareLaunchArgument(
+        "use_joystick",
+        default_value="true",
+        description="Launch PS3 joystick nodes from robot_pi_startup",
+    )
     use_sim_time_arg = DeclareLaunchArgument(
         "use_sim_time",
         default_value="false",
@@ -38,6 +43,7 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(startup_launch),
         launch_arguments={
             "camera_port": LaunchConfiguration("camera_port"),
+            "use_joystick": LaunchConfiguration("use_joystick"),
         }.items(),
     )
 
@@ -52,6 +58,7 @@ def generate_launch_description():
     return LaunchDescription(
         [
             camera_port_arg,
+            use_joystick_arg,
             use_sim_time_arg,
             slam_params_arg,
             LogInfo(msg="[robot_diff_drive] Starting robot startup stack (bridge + odom + rviz)..."),
